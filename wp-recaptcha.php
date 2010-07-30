@@ -271,6 +271,7 @@ $option_defaults = array (
    're_comments' => '1', // whether or not to show reCAPTCHA on the comment post
    're_registration' => '1', // whether or not to show reCAPTCHA on the registratoin page
    're_xhtml' => '0', // whether or not to be XHTML 1.0 Strict compliant
+   're_ajax' => '0', // whether to use the AJAX API
    'mh_replace_link' => '', // name the link something else
    'mh_replace_title' => '', // title of the link
    'error_blank' => '<strong>ERROR</strong>: Please fill in the reCAPTCHA form.', // the message to display when the user enters no CAPTCHA response
@@ -495,7 +496,47 @@ COMMENT_FORM;
    }
 }
 
-add_action('comment_form', 'recaptcha_comment_form');
+function recaptcha_ajax_comment_form() {
+   global $user_ID, $recaptcha_opt;
+
+   // set the minimum capability needed to skip the captcha if there is one
+   if ($recaptcha_opt['re_bypass'] && $recaptcha_opt['re_bypasslevel'])
+      $needed_capability = $recaptcha_opt['re_bypasslevel'];
+
+	// skip the reCAPTCHA display if the minimum capability is met
+	if (($needed_capability && current_user_can($needed_capability)) || !$recaptcha_opt['re_comments'])
+		return;
+
+	$html = <<<HTML
+	<div id="recaptcha"></div>
+  <script type="text/javascript">
+	var RecaptchaOptions = { theme : '{$recaptcha_opt['re_theme']}',
+	  lang : '{$recaptcha_opt['re_lang']}',
+	  tabindex : {$recaptcha_opt['re_tabindex']},
+	  callback : function() {
+			var sub = document.getElementById('submit');
+			sub.parentNode.removeChild(sub);
+			document.getElementById('recaptcha-submit-btn-area').appendChild(sub);
+			document.getElementById('submit').tabIndex = 6;
+			if ( typeof _recaptcha_wordpress_savedcomment != 'undefined') {
+					document.getElementById('comment').value = _recaptcha_wordpress_savedcomment;
+			}
+			document.getElementById('recaptcha_table').style.direction = 'ltr';
+	    } };
+	jQuery(function(){Recaptcha.create("{$recaptcha_opt['pubkey']}", "recaptcha", RecaptchaOptions)})
+	</script>
+	<div id="recaptcha-submit-btn-area"></div>
+HTML;
+  echo $html;
+}
+
+if ($recaptcha_opt['re_ajax']) {
+  wp_enqueue_script('jquery');
+  wp_enqueue_script('recaptcha_ajax',
+    "http://www.google.com/recaptcha/api/js/recaptcha_ajax.js?k=" . $recaptcha_opt['pubkey']);
+  add_action('comment_form', 'recaptcha_ajax_comment_form');
+} else
+  add_action('comment_form', 'recaptcha_comment_form');
 
 function recaptcha_wp_show_captcha_for_comment() {
    global $user_ID;
@@ -630,6 +671,7 @@ function recaptcha_wp_options_subpanel() {
 		're_comments' => '1',
 		're_registration' => '1',
 		're_xhtml' => '0',
+		're_ajax' => '0',
       'mh_replace_link' => '',
       'mh_replace_title' => '',
       'error_blank' => '<strong>ERROR</strong>: Please fill in the reCAPTCHA form.',
@@ -661,6 +703,7 @@ function recaptcha_wp_options_subpanel() {
 		're_comments' => $_POST['re_comments'],
 		're_registration' => $_POST['re_registration'],
 		're_xhtml' => $_POST['re_xhtml'],
+		're_ajax' => $_POST['re_ajax'],
       'mh_replace_link' => $_POST['mh_replace_link'],
       'mh_replace_title' => $_POST['mh_replace_title'],
       'error_blank' => $_POST['error_blank'],
@@ -830,6 +873,8 @@ function recaptcha_dropdown_capabilities($select_name, $checked_value="") {
 		    	</div>
 		    	<!-- Whether or not to be XHTML 1.0 Strict compliant -->
 				<input type="checkbox" name="re_xhtml" id="re_xhtml" value="1" <?php if($optionarray_def['re_xhtml'] == true){echo 'checked="checked"';} ?> /> <label for="re_xhtml">Be XHTML 1.0 Strict compliant. <strong>Note</strong>: Bad for users who don't have Javascript enabled in their browser (Majority do).</label>
+				<br />
+				<input type="checkbox" name="re_ajax" id="re_ajax" value="1" <?php if($optionarray_def['re_ajax'] == true){echo 'checked="checked"';} ?> /> <label for="re_ajax">Use the AJAX API.  This is necessary when using XML media types.</label>
 				<br />
 			</td>
 		</tr>
