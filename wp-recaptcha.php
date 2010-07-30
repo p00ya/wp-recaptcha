@@ -3,7 +3,7 @@
 Plugin Name: WP-reCAPTCHA
 Plugin URI: http://www.blaenkdenum.com/wp-recaptcha/
 Description: Integrates reCAPTCHA anti-spam solutions with wordpress
-Version: 2.9.6
+Version: 2.9.7
 Author: Jorge Peña
 Email: support@recaptcha.net
 Author URI: http://www.blaenkdenum.com
@@ -21,12 +21,10 @@ Author URI: http://www.blaenkdenum.com
 
 $wpmu = 0;
 
-if(is_dir(WP_CONTENT_DIR . '/mu-plugins')){
-	if (is_file(WP_CONTENT_DIR . '/mu-plugins/wp-recaptcha.php')) // forced activated
-	   $wpmu = 1;
-	else if (is_file(WP_CONTENT_DIR . '/plugins/wp-recaptcha.php')) // optionally activated
-	   $wpmu = 2;
-}
+if (basename(dirname(__FILE__)) == "mu-plugins") // forced activated
+   $wpmu = 1;
+else if (basename(dirname(__FILE__)) == "plugins" && function_exists('is_site_admin')) // optionally activated
+   $wpmu = 2;
 
 if ($wpmu == 1)
    $recaptcha_opt = get_site_option('recaptcha'); // get the options from the database
@@ -36,9 +34,9 @@ else
 // END WORDPRESS MU DETECTION
    
 if ($wpmu == 1)
-   require_once(WP_CONTENT_DIR . '/mu-plugins/wp-recaptcha/recaptchalib.php');
+   require_once(dirname(__FILE__) . '/wp-recaptcha/recaptchalib.php');
 else
-   require_once(WP_CONTENT_DIR . '/plugins/recaptchalib.php');
+   require_once(dirname(__FILE__) . '/recaptchalib.php');
 
 // doesn't need to be secret, just shouldn't be used by any other code.
 define ("RECAPTCHA_WP_HASH_SALT", "b7e0638d85f5d7f3694f68e944136d62");

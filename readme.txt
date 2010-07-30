@@ -4,7 +4,7 @@ Donate link: http://www.blaenkdenum.com
 Tags: comments, registration, recaptcha, antispam, mailhide, captcha, wpmu
 Requires at least: 2.1
 Tested up to: 2.7.1
-Stable tag: 2.9.6
+Stable tag: 2.9.7
 
 Integrates reCAPTCHA anti-spam methods with WordPress including comment, registration, and email spam protection. WPMU Compatible.
 
@@ -51,6 +51,8 @@ To install in WordPress MU (Forced Activation/Site-Wide):
 
 == ChangeLog ==
 
+= Version 2.9.7 =
+* Fixed a relatively new [critical bug](http://www.blaenkdenum.com/2010/03/recaptcha-marking-all-comments-as-spam/) which marked new comments as spam regardless of reCAPTCHA response
 = Version 2.9.6 =
 * Fixed a careless bug affecting custom hidden emails
 * Fixed broken links in readme.txt
