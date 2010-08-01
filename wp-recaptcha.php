@@ -425,23 +425,34 @@ function recaptcha_wp_get_html ($recaptcha_error, $use_ssl=false) {
 }
 
 /**
- *  Embeds the reCAPTCHA widget into the comment form.
- * 
- */	
-function recaptcha_comment_form() {
+ * Return true if the current user does not need the captcha test.
+ */
+function bypass_recaptcha() {
    global $user_ID, $recaptcha_opt;
 
    // set the minimum capability needed to skip the captcha if there is one
    if ($recaptcha_opt['re_bypass'] && $recaptcha_opt['re_bypasslevel'])
       $needed_capability = $recaptcha_opt['re_bypasslevel'];
 
-	// skip the reCAPTCHA display if the minimum capability is met
-	if (($needed_capability && current_user_can($needed_capability)) || !$recaptcha_opt['re_comments'])
-		return;
-   
-   else {
-		// Did the user fail to match the CAPTCHA? If so, let them know
-		if ($_GET['rerror'] == 'incorrect-captcha-sol')
+   // skip the reCAPTCHA display if the minimum capability is met
+   if (($needed_capability && current_user_can($needed_capability)) || !$recaptcha_opt['re_comments'])
+      return true;
+
+   return false;
+}
+
+/**
+ *  Embeds the reCAPTCHA widget into the comment form.
+ *
+ */
+function recaptcha_comment_form() {
+   global $recaptcha_opt;
+
+   if (bypass_recaptcha())
+      return;
+
+   // Did the user fail to match the CAPTCHA? If so, let them know
+	if ($_GET['rerror'] == 'incorrect-captcha-sol')
 		echo "<p class=\"recaptcha-error\">" . $recaptcha_opt['error_incorrect'] . "</p>";
    
 		//modify the comment form for the reCAPTCHA widget
@@ -451,7 +462,7 @@ function recaptcha_comment_form() {
 		</script>
 OPTS;
 
-		if ($recaptcha_opt['re_xhtml']) {
+	if ($recaptcha_opt['re_xhtml']) {
 		$comment_string = <<<COMMENT_FORM
 				<div id="recaptcha-submit-btn-area"><br /></div>
 				<script type='text/javascript'>
@@ -493,19 +504,13 @@ COMMENT_FORM;
          $use_ssl = false;
 		
 		echo $recaptcha_js_opts .  recaptcha_wp_get_html($_GET['rerror'], $use_ssl) . $comment_string;
-   }
 }
 
 function recaptcha_ajax_comment_form() {
-   global $user_ID, $recaptcha_opt;
+   global $recaptcha_opt;
 
-   // set the minimum capability needed to skip the captcha if there is one
-   if ($recaptcha_opt['re_bypass'] && $recaptcha_opt['re_bypasslevel'])
-      $needed_capability = $recaptcha_opt['re_bypasslevel'];
-
-	// skip the reCAPTCHA display if the minimum capability is met
-	if (($needed_capability && current_user_can($needed_capability)) || !$recaptcha_opt['re_comments'])
-		return;
+   if (bypass_recaptcha())
+      return;
 
 	$html = <<<HTML
 	<div id="recaptcha"></div>
