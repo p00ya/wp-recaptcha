@@ -267,7 +267,6 @@ $option_defaults = array (
    're_theme' => 'red', // the default theme for reCAPTCHA on the comment post
    're_theme_reg' => 'red', // the default theme for reCAPTCHA on the registration form
    're_lang' => 'en', // the default language for reCAPTCHA
-   're_tabindex' => '5', // the default tabindex for reCAPTCHA
    're_comments' => '1', // whether or not to show reCAPTCHA on the comment post
    're_registration' => '1', // whether or not to show reCAPTCHA on the registratoin page
    're_xhtml' => '0', // whether or not to be XHTML 1.0 Strict compliant
@@ -442,87 +441,72 @@ function bypass_recaptcha() {
 }
 
 /**
- *  Embeds the reCAPTCHA widget into the comment form.
- *
+ *  Return the reCAPTCHA widget for embedding in a comment field.
+ *  This is the non-AJAX version.
  */
-function recaptcha_comment_form() {
+function recaptcha_field() {
    global $recaptcha_opt;
 
-   if (bypass_recaptcha())
-      return;
+   $field = '';
 
-   // Did the user fail to match the CAPTCHA? If so, let them know
-	if ($_GET['rerror'] == 'incorrect-captcha-sol')
-		echo "<p class=\"recaptcha-error\">" . $recaptcha_opt['error_incorrect'] . "</p>";
-   
-		//modify the comment form for the reCAPTCHA widget
-		$recaptcha_js_opts = <<<OPTS
-		<script type='text/javascript'>
-				var RecaptchaOptions = { theme : '{$recaptcha_opt['re_theme']}', lang : '{$recaptcha_opt['re_lang']}' , tabindex : {$recaptcha_opt['re_tabindex']} };
-		</script>
-OPTS;
-
-	if ($recaptcha_opt['re_xhtml']) {
-		$comment_string = <<<COMMENT_FORM
-				<div id="recaptcha-submit-btn-area"><br /></div>
-				<script type='text/javascript'>
-				var sub = document.getElementById('submit');
-				sub.parentNode.removeChild(sub);
-				document.getElementById('recaptcha-submit-btn-area').appendChild (sub);
-				document.getElementById('submit').tabIndex = 6;
-				if ( typeof _recaptcha_wordpress_savedcomment != 'undefined') {
-						document.getElementById('comment').value = _recaptcha_wordpress_savedcomment;
-				}
-				document.getElementById('recaptcha_table').style.direction = 'ltr';
-				</script>
+	$comment_string = <<<COMMENT_FORM
+			<script type='text/javascript'>
+			var RecaptchaOptions = { theme : '{$recaptcha_opt['re_theme']}', lang : '{$recaptcha_opt['re_lang']}' };
+			if ( typeof _recaptcha_wordpress_savedcomment != 'undefined') {
+					document.getElementById('comment').value = _recaptcha_wordpress_savedcomment;
+			}
+			document.getElementById('recaptcha_table').style.direction = 'ltr';
+			</script>
 COMMENT_FORM;
-		}
-		
-		else {
-		$comment_string = <<<COMMENT_FORM
-				<div id="recaptcha-submit-btn-area"></div> 
-				<script type='text/javascript'>
-				var sub = document.getElementById('submit');
-				sub.parentNode.removeChild(sub);
-				document.getElementById('recaptcha-submit-btn-area').appendChild (sub);
-				document.getElementById('submit').tabIndex = 6;
-				if ( typeof _recaptcha_wordpress_savedcomment != 'undefined') {
-						document.getElementById('comment').value = _recaptcha_wordpress_savedcomment;
-				}
-				document.getElementById('recaptcha_table').style.direction = 'ltr';
-				</script>
-				<noscript>
-				 <style type='text/css'>#submit {display:none;}</style>
-				 <input name="submit" type="submit" id="submit-alt" tabindex="6" value="Submit Comment"/> 
-				</noscript>
-COMMENT_FORM;
-		}
 
-		if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == "on")
-         $use_ssl = true;
-		else
-         $use_ssl = false;
-		
-		echo $recaptcha_js_opts .  recaptcha_wp_get_html($_GET['rerror'], $use_ssl) . $comment_string;
+	if (!$recaptcha_opt['re_xhtml']) {
+		$comment_string .= <<<COMMENT_FORM
+			<noscript>
+			 <style type='text/css'>#submit {display:none;}</style>
+			 <input name="submit" type="submit" id="submit-alt" value="Submit Comment"/>
+			</noscript>
+COMMENT_FORM;
+  }
+
+	$use_ssl = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == "on";
+
+	$field .= $comment_string . recaptcha_wp_get_html($_GET['rerror'], $use_ssl);
+
+  return $field;
 }
 
-function recaptcha_ajax_comment_form() {
+function recaptcha_comment_form_default_fields($fields) {
    global $recaptcha_opt;
 
    if (bypass_recaptcha())
-      return;
+    return $fields;
 
-	$html = <<<HTML
-	<div id="recaptcha"></div>
+	 // Did the user fail to match the CAPTCHA? If so, let them know
+	 if ($_GET['rerror'] == 'incorrect-captcha-sol')
+	    $content = "<p class=\"recaptcha-error\">" . $recaptcha_opt['error_incorrect'] . "</p>";
+
+   if ($recaptcha_opt['re_ajax']) {
+      $content .= '<div id="recaptcha"></div>';
+   } else {
+      $content .= recaptcha_field();
+   }
+
+  $fields['recaptcha'] = <<<HTML
+<p class="comment-form-recaptcha"><label for="recaptcha">Humanity</label>
+<span class="required">*</span>
+$content
+</p>
+HTML;
+  return $fields;
+}
+
+function recaptcha_ajax_footer() {
+  global $recaptcha_opt;
+  echo <<<HTML
   <script type="text/javascript">
 	var RecaptchaOptions = { theme : '{$recaptcha_opt['re_theme']}',
 	  lang : '{$recaptcha_opt['re_lang']}',
-	  tabindex : {$recaptcha_opt['re_tabindex']},
 	  callback : function() {
-			var sub = document.getElementById('submit');
-			sub.parentNode.removeChild(sub);
-			document.getElementById('recaptcha-submit-btn-area').appendChild(sub);
-			document.getElementById('submit').tabIndex = 6;
 			if ( typeof _recaptcha_wordpress_savedcomment != 'undefined') {
 					document.getElementById('comment').value = _recaptcha_wordpress_savedcomment;
 			}
@@ -530,18 +514,18 @@ function recaptcha_ajax_comment_form() {
 	    } };
 	jQuery(function(){Recaptcha.create("{$recaptcha_opt['pubkey']}", "recaptcha", RecaptchaOptions)})
 	</script>
-	<div id="recaptcha-submit-btn-area"></div>
 HTML;
-  echo $html;
 }
 
 if ($recaptcha_opt['re_ajax']) {
   wp_enqueue_script('jquery');
+  $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == "on") ? 'https' : 'http';
   wp_enqueue_script('recaptcha_ajax',
-    "http://www.google.com/recaptcha/api/js/recaptcha_ajax.js?k=" . $recaptcha_opt['pubkey']);
-  add_action('comment_form', 'recaptcha_ajax_comment_form');
-} else
-  add_action('comment_form', 'recaptcha_comment_form');
+    "$scheme://www.google.com/recaptcha/api/js/recaptcha_ajax.js?k=" . $recaptcha_opt['pubkey']);
+  add_action('wp_footer', 'recaptcha_ajax_footer');
+}
+add_filter('comment_form_default_fields', 'recaptcha_comment_form_default_fields');
+
 
 function recaptcha_wp_show_captcha_for_comment() {
    global $user_ID;
@@ -672,7 +656,6 @@ function recaptcha_wp_options_subpanel() {
 		're_theme' => 'red',
 		're_theme_reg' => 'red',
 		're_lang' => 'en',
-		're_tabindex' => '5',
 		're_comments' => '1',
 		're_registration' => '1',
 		're_xhtml' => '0',
@@ -704,7 +687,6 @@ function recaptcha_wp_options_subpanel() {
 		're_theme' => $_POST['re_theme'],
 		're_theme_reg' => $_POST['re_theme_reg'],
 		're_lang' => $_POST['re_lang'],
-		're_tabindex' => $_POST['re_tabindex'],
 		're_comments' => $_POST['re_comments'],
 		're_registration' => $_POST['re_registration'],
 		're_xhtml' => $_POST['re_xhtml'],
@@ -815,9 +797,6 @@ function recaptcha_dropdown_capabilities($select_name, $checked_value="") {
 			<option value="clean" <?php if($optionarray_def['re_theme'] == 'clean'){echo 'selected="selected"';} ?>>Clean</option>
 			</select>
 			</div>
-			<!-- Tab Index -->
-			<label for="re_tabindex">Tab Index (<em>e.g. WP: <strong>5</strong>, WPMU: <strong>3</strong></em>):</label>
-			<input name="re_tabindex" id="re_tabindex" size="5" value="<?php  echo $optionarray_def['re_tabindex']; ?>" />
 			<br />
 			<?php global $wpmu; if ($wpmu == 1 || $wpmu == 0) { ?>
 		</td>
