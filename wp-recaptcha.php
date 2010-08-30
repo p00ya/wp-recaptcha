@@ -501,6 +501,9 @@ HTML;
 }
 
 function recaptcha_ajax_footer() {
+  if (!is_single())
+    return;
+
   global $recaptcha_opt;
   echo <<<HTML
   <script type="text/javascript">
