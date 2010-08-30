@@ -437,6 +437,8 @@ function bypass_recaptcha() {
    // skip the reCAPTCHA display if the minimum capability is met
    if (($needed_capability && current_user_can($needed_capability)) || !$recaptcha_opt['re_comments'])
       return true;
+   if (is_archive())
+     return true;
 
    return false;
 }
